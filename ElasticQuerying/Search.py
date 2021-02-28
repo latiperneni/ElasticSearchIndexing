@@ -37,9 +37,51 @@ class Search(object):
         except Exception as e:
             self.error = str(e)
 
+    def search_by_scan(self, index, doc_type, size=1000, body={}):
 
-# to do search all query
-def search_all(client, index):
+        start_time = int(time.time())
+        lst = []
+
+        # Check index exists
+        if not es.indices.exists(index=index):
+            print("Index " + index + " not exists")
+            exit()
+
+        # Init scroll by search
+        data = es.search(index=index, doc_type=doc_type, scroll='2m', size=size, body=body)
+
+        # Get the scroll ID
+        sid = data['_scroll_id']
+        scroll_size = len(data['hits']['hits'])
+
+        try:
+            while scroll_size > 0:
+                "Scrolling..."
+
+                # Before scroll, process current batch of hits
+                lst.extend([hit['_source'] for hit in data['hits']['hits']])
+
+                data = es.scroll(scroll_id=sid, scroll='2m')
+
+                # Update the scroll ID
+                sid = data['_scroll_id']
+
+                # Get the number of results that returned in the last scroll
+                scroll_size = len(data['hits']['hits'])
+
+        except Exception as e:
+            print(e)
+        finally:
+            self.response = lst
+            end_time = int(time.time())
+            print('elastic activity, time taken = %s secs' % (end_time - start_time))
+
+
+if __name__ == '__main__':
+    # use any method needed to test eg: search_all(hosts,port,index)
+    client = Search(hosts=hosts, port=port)
+
+    # to do search all query
     try:
         payload = {}
         client.search(index=index, payload=payload)
@@ -48,22 +90,23 @@ def search_all(client, index):
     except Exception as e:
         print('ERROR: exception during elastic search - %s' % e)
 
+    # search by scan
+    # to do batch searching when index has more than 10000 records
+    try:
+        payload = {}
+        lst = client.search_by_scan(index=index, doc_type=doc_type, size=size, body=body)
+        df = pd.DataFrame.from_records(lst)
 
-# to do batch searching when index has more than 10000 records
-# post querying
-# put querying
+    except Exception as e:
+        print('ERROR: exception during elastic search - %s' % e)
 
-# delete querying
-def delete(client, index):
+    # post querying
+    # put querying
+
+    # delete querying
     try:
         client.delete_docs(index=index)
         df_indexResponse = pd.DataFrame(client.response)
 
     except Exception as e:
         print('ERROR: exception during elastic search - %s' % e)
-
-
-if __name__ == '__main__':
-    # use any method needed to test eg: search_all(hosts,port,index)
-    client = Search(hosts=hosts, port=port)
-    search_all(client, index)
