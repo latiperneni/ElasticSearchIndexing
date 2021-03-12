@@ -26,6 +26,15 @@ class Search(object):
             self.error = str(e)
             print('error %s' % self.error)
 
+    def insert(self, index, payload, id, doc_type='_doc'):
+        try:
+            response_code = local.index(index=index, doc_type=doc_type, id=id, body=body)
+            return response_code
+
+        except Exception as e:
+            self.error = str(e)
+            print('error %s' % self.error)
+
     def delete_docs(self, index=None, query=()):
         try:
             self.response = self.client.delete_by_query(
@@ -81,6 +90,9 @@ if __name__ == '__main__':
     # use any method needed to test eg: search_all(hosts,port,index)
     client = Search(hosts=hosts, port=port)
 
+    # in case authentication needed
+    # client = Elasticsearch([{'host': host, 'port': port}],http_auth=('username', 'password'), scheme="https", timeout=1000)
+
     # to do search all query
     try:
         payload = {}
@@ -100,13 +112,19 @@ if __name__ == '__main__':
     except Exception as e:
         print('ERROR: exception during elastic search - %s' % e)
 
-    # post querying
-    # put querying
-
     # delete querying
     try:
         client.delete_docs(index=index)
         df_indexResponse = pd.DataFrame(client.response)
 
+    except Exception as e:
+        print('ERROR: exception during elastic search - %s' % e)
+
+    # inserting pandas dataframe to elastic search index
+    try:
+        # in case df is a pandas dataframe
+        for index, row in df.iterrows():
+            body = json.loads(row.to_json())
+            local.index(index=index, doc_type='_doc', id=id, body=body)
     except Exception as e:
         print('ERROR: exception during elastic search - %s' % e)
